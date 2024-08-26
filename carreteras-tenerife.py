@@ -9,7 +9,7 @@ st.set_page_config(page_title="Análisis de Incidentes en Carreteras", layout="w
 # Cargar los datos
 @st.cache_data
 def load_data():
-    df = pd.read_csv('C:/Users/guaja/proyectos/incidencias/incidencias_modificacion_1.csv')
+    df = pd.read_csv('incidencias_modificacion_1.csv')
     df['incidencia_fecha_inicio'] = pd.to_datetime(df['incidencia_fecha_inicio'])
     df['año'] = df['incidencia_fecha_inicio'].dt.year
     df['hora'] = df['incidencia_fecha_inicio'].dt.hour
