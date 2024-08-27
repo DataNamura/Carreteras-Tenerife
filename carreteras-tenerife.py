@@ -70,21 +70,37 @@ else:
 
 # Gráfico 2: Distribución de Accidentes por Hora del Día
 st.header("Distribución de Accidentes por Hora del Día")
+
+# Contar el número de accidentes por hora y asegurarse de que todas las horas del día estén presentes
 accidentes_por_hora = df_filtrado_accidentes['hora'].value_counts().sort_index()
-if accidentes_por_hora.empty:
-    st.write("No hay suficientes datos para mostrar el gráfico.")
-else:
-    plt.figure(figsize=(10, 6))
-    sns.lineplot(x=accidentes_por_hora.index, y=accidentes_por_hora.values, marker='o', color="skyblue")
-    plt.title("Accidentes por Hora del Día")
-    plt.xlabel("Hora del Día")
-    plt.ylabel("Número de Accidentes")
-    plt.grid(True)
-    plt.tight_layout()
-    plt.savefig("grafico_accidentes_por_hora.png")
-    st.pyplot(plt)
-    with open("grafico_accidentes_por_hora.png", "rb") as file:
-        st.download_button(label="Descargar gráfico", data=file, file_name="grafico_accidentes_por_hora.png", mime="image/png")
+
+# Crear un DataFrame con todas las horas del día (0 a 23)
+todas_las_horas = pd.DataFrame({'hora': range(24)})
+
+# Convertir accidentes_por_hora a DataFrame
+accidentes_por_hora_df = accidentes_por_hora.reset_index()
+accidentes_por_hora_df.columns = ['hora', 'numero_accidentes']
+
+# Unir con el DataFrame de todas las horas
+accidentes_por_hora_df = todas_las_horas.merge(accidentes_por_hora_df, how='left', on='hora')
+
+# Rellenar valores nulos con 0 para las horas sin accidentes
+accidentes_por_hora_df['numero_accidentes'] = accidentes_por_hora_df['numero_accidentes'].fillna(0).astype(int)
+
+# Graficar
+plt.figure(figsize=(10, 6))
+sns.lineplot(x=accidentes_por_hora_df['hora'], y=accidentes_por_hora_df['numero_accidentes'], marker='o', color="skyblue")
+plt.title("Accidentes por Hora del Día")
+plt.xlabel("Hora del Día")
+plt.ylabel("Número de Accidentes")
+plt.xticks(range(24))  # Asegurarse de que todas las horas estén en el eje x
+plt.grid(True)
+plt.tight_layout()
+plt.savefig("grafico_accidentes_por_hora.png")
+st.pyplot(plt)
+with open("grafico_accidentes_por_hora.png", "rb") as file:
+    st.download_button(label="Descargar gráfico", data=file, file_name="grafico_accidentes_por_hora.png", mime="image/png")
+
 
 # Gráfico 3: Correlación entre Día de la Semana y Número de Accidentes
 st.header("Correlación entre Día de la Semana y Número de Accidentes")
@@ -290,7 +306,5 @@ Este valor es la media de las probabilidades de accidente calculadas para cada c
 **Probabilidad de que ocurra al menos un accidente**: 
 Este valor estima la probabilidad de que ocurra al menos un accidente en cualquiera de las combinaciones seleccionadas. Es útil para evaluar el riesgo acumulado cuando se consideran múltiples escenarios.
 """)
-
-
 
 
