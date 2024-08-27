@@ -2,14 +2,26 @@ import streamlit as st
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+import gdown
 
 # Configuración de la página
 st.set_page_config(page_title="Análisis de Incidentes en Carreteras", layout="wide")
 
-# Cargar los datos
+# Cargar los datos desde Google Drive
 @st.cache_data
 def load_data():
-    df = pd.read_csv('incidencias_modificacion_1.csv')
+    # El ID del archivo que obtuviste de Google Drive
+    file_id = '1ZNtIooyj_3dAQ8dVpbnNOSFYHr0vDZdG'
+    url = f'https://drive.google.com/uc?id={file_id}'
+    output = 'incidencias_modificacion_1.csv'
+
+    # Descargar el archivo
+    gdown.download(url, output, quiet=False)
+
+    # Cargar el archivo CSV en un DataFrame
+    df = pd.read_csv(output)
+
+    # Procesamiento de los datos
     df['incidencia_fecha_inicio'] = pd.to_datetime(df['incidencia_fecha_inicio'])
     df['año'] = df['incidencia_fecha_inicio'].dt.year
     df['hora'] = df['incidencia_fecha_inicio'].dt.hour
