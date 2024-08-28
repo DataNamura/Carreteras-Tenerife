@@ -291,20 +291,12 @@ pred_probs = model.predict_proba(input_data)[:, 1]  # Probabilidad de accidente
 # Calcular la probabilidad promedio de accidente
 avg_pred_prob = pred_probs.mean()
 
-# Calcular la probabilidad de que ocurra al menos un accidente
-prob_at_least_one = 1 - np.prod(1 - pred_probs)
-
 # Mostrar resultados en la app
 st.write(f"Probabilidad promedio de que ocurra un accidente: {avg_pred_prob:.2%}")
-st.write(f"Probabilidad de que ocurra al menos un accidente: {prob_at_least_one:.2%}")
 
 # Explicación de los cálculos
 st.markdown("""
 **Probabilidad promedio de que ocurra un accidente**: 
 Este valor es la media de las probabilidades de accidente calculadas para cada combinación de los filtros seleccionados (meses, días, horas, tramos). Refleja el riesgo general, pero no implica que siempre ocurra un accidente.
-
-**Probabilidad de que ocurra al menos un accidente**: 
-Este valor estima la probabilidad de que ocurra al menos un accidente en cualquiera de las combinaciones seleccionadas. Es útil para evaluar el riesgo acumulado cuando se consideran múltiples escenarios.
 """)
-
 
