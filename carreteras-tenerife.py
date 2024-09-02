@@ -5,8 +5,19 @@ import matplotlib.pyplot as plt
 import gdown
 
 # Configuración de la página
-st.set_page_config(page_title="Análisis de Incidentes en Carreteras", layout="wide")
+st.set_page_config(page_title="🚗 Análisis de Accidentes en Carreteras", layout="wide")
 
+# Instrucciones y contexto
+st.markdown("""
+# 🚗 Análisis y Predicción de Accidentes en Carreteras de Tenerife
+
+Esta aplicación interactiva proporciona un análisis detallado y predicciones sobre los accidentes de tráfico ocurridos en las carreteras de Tenerife entre los años **2010 y 2024**. 
+Es importante destacar que:
+- **Datos de 2010**: Hay una menor cantidad de datos disponibles, lo que podría influir en la precisión del análisis para ese año.
+- **Datos de 2024**: Los datos están disponibles solo hasta **julio de 2024**.
+
+Utilizando estos datos, se han creado varias visualizaciones para explorar las tendencias y patrones, así como un modelo de predicción para estimar la probabilidad de futuros accidentes basados en diferentes factores como la carretera, tramo, hora del día, entre otros.
+""")
 # Cargar los datos desde Google Drive
 @st.cache_data
 def load_data():
@@ -24,22 +35,49 @@ def load_data():
 
 df = load_data()
 
-# Título de la aplicación
-st.title("Análisis Interactivo de Incidentes en Carreteras")
-
 # Filtros en la barra lateral
-st.sidebar.header("Filtros")
+st.sidebar.header("🔎 Filtros")
 
+# Subtítulo y descripción para el filtro de años
+st.sidebar.subheader("📅 Rango de Años")
+st.sidebar.markdown("Selecciona el rango de años que deseas analizar.")
 min_year = int(df['año'].min())
 max_year = int(df['año'].max())
 años = st.sidebar.slider("Selecciona el Rango de Años", min_year, max_year, (min_year, max_year))
 
-carreteras_disponibles = df['carretera_nombre'].unique().tolist()
-carreteras_seleccionadas = st.sidebar.multiselect("Selecciona Carreteras", carreteras_disponibles, default=carreteras_disponibles)
+# Separador para organizar los filtros
+st.sidebar.markdown("---")
 
+# Subtítulo y descripción para el filtro de carreteras
+st.sidebar.subheader("🛣️ Selección de Carreteras")
+st.sidebar.markdown("Elige una o varias carreteras para filtrar los datos.")
+carreteras_disponibles = df['carretera_nombre'].unique().tolist()
+carreteras_disponibles.append("Seleccionar Todas")  # Añadir opción para seleccionar todas
+carreteras_seleccionadas = st.sidebar.multiselect(
+    "Carreteras",
+    carreteras_disponibles,
+    default=["Seleccionar Todas"]  # Opción predeterminada
+)
+
+# Otro separador
+st.sidebar.markdown("---")
+
+# Subtítulo y descripción para el filtro de horas
+st.sidebar.subheader("⏰ Hora del Día")
+st.sidebar.markdown("Filtra los datos según la hora del día en la que ocurrieron los incidentes.")
 hora = st.sidebar.slider("Selecciona la Hora del Día", 0, 23, (0, 23))
 
+# Otro separador
+st.sidebar.markdown("---")
+
+# Añadir información adicional sobre cómo usar los filtros
+st.sidebar.info("Usa los filtros para personalizar los datos que deseas analizar en los gráficos y predicciones.")
+
+
 # Filtrar el dataframe
+if "Seleccionar Todas" in carreteras_seleccionadas:
+    carreteras_seleccionadas = carreteras_disponibles[:-1]  # Excluye la opción "Seleccionar Todas"
+
 df_filtrado = df[(df['año'] >= años[0]) & (df['año'] <= años[1]) &
                  (df['carretera_nombre'].isin(carreteras_seleccionadas)) &
                  (df['hora'] >= hora[0]) & (df['hora'] <= hora[1])]
@@ -48,28 +86,32 @@ df_filtrado = df[(df['año'] >= años[0]) & (df['año'] <= años[1]) &
 df_filtrado_accidentes = df_filtrado[df_filtrado['nombre_accidentes'] != 'incidente']
 
 # Mostrar el dataframe filtrado
-st.write(f"Datos Filtrados: {df_filtrado_accidentes.shape[0]} registros")
+st.write(f"📊 Datos Filtrados: {df_filtrado_accidentes.shape[0]} registros")
 st.dataframe(df_filtrado_accidentes)
 
+# Configuración global del estilo del gráfico
+sns.set(style="darkgrid")  # Configura el estilo de fondo oscuro
+plt.style.use("dark_background")  # Alternativa para fondo oscuro
+
 # Gráfico 1: Número de Accidentes por Tramo
-st.header("Número de Accidentes en las Carreteras Seleccionadas")
+st.header("🔝 Número de Accidentes en las Carreteras Seleccionadas")
 accidentes_por_tramo = df_filtrado_accidentes['tramo_nombre'].value_counts().head(10)
 if accidentes_por_tramo.empty:
-    st.write("No hay suficientes datos para mostrar el gráfico.")
+    st.write("⚠️ No hay suficientes datos para mostrar el gráfico.")
 else:
     plt.figure(figsize=(10, 6))
     sns.barplot(x=accidentes_por_tramo.values, y=accidentes_por_tramo.index, palette="Blues_r")
-    plt.title("Top 10 Tramos de Carretera con Más Accidentes")
+    plt.title("🚧 Top 10 Tramos de Carretera con Más Accidentes")
     plt.xlabel("Número de Accidentes")
     plt.ylabel("Tramo")
     plt.tight_layout()
     plt.savefig("grafico_accidentes_por_tramo.png")
     st.pyplot(plt)
     with open("grafico_accidentes_por_tramo.png", "rb") as file:
-        st.download_button(label="Descargar gráfico", data=file, file_name="grafico_accidentes_por_tramo.png", mime="image/png")
+        st.download_button(label="💾 Descargar gráfico", data=file, file_name="grafico_accidentes_por_tramo.png", mime="image/png")
 
 # Gráfico 2: Distribución de Accidentes por Hora del Día
-st.header("Distribución de Accidentes por Hora del Día")
+st.header("⏱️ Distribución de Accidentes por Hora del Día")
 
 # Contar el número de accidentes por hora y asegurarse de que todas las horas del día estén presentes
 accidentes_por_hora = df_filtrado_accidentes['hora'].value_counts().sort_index()
@@ -90,7 +132,7 @@ accidentes_por_hora_df['numero_accidentes'] = accidentes_por_hora_df['numero_acc
 # Graficar
 plt.figure(figsize=(10, 6))
 sns.lineplot(x=accidentes_por_hora_df['hora'], y=accidentes_por_hora_df['numero_accidentes'], marker='o', color="skyblue")
-plt.title("Accidentes por Hora del Día")
+plt.title("⏰ Accidentes por Hora del Día")
 plt.xlabel("Hora del Día")
 plt.ylabel("Número de Accidentes")
 plt.xticks(range(24))  # Asegurarse de que todas las horas estén en el eje x
@@ -99,19 +141,18 @@ plt.tight_layout()
 plt.savefig("grafico_accidentes_por_hora.png")
 st.pyplot(plt)
 with open("grafico_accidentes_por_hora.png", "rb") as file:
-    st.download_button(label="Descargar gráfico", data=file, file_name="grafico_accidentes_por_hora.png", mime="image/png")
-
+    st.download_button(label="💾 Descargar gráfico", data=file, file_name="grafico_accidentes_por_hora.png", mime="image/png")
 
 # Gráfico 3: Correlación entre Día de la Semana y Número de Accidentes
-st.header("Correlación entre Día de la Semana y Número de Accidentes")
+st.header("📅 Correlación entre Día de la Semana y Número de Accidentes")
 correlacion_df = df_filtrado_accidentes.groupby('dia_semana').size().reset_index(name='accidentes')
 
 if correlacion_df.empty:
-    st.write("No hay suficientes datos para mostrar el gráfico.")
+    st.write("⚠️ No hay suficientes datos para mostrar el gráfico.")
 else:
     plt.figure(figsize=(10, 6))
     sns.regplot(x='dia_semana', y='accidentes', data=correlacion_df, scatter_kws={'s':50}, line_kws={'color':'blue'})
-    plt.title('Correlación entre Día de la Semana y Número de Accidentes')
+    plt.title('📊 Correlación entre Día de la Semana y Número de Accidentes')
     plt.xlabel('Día de la Semana')
     plt.ylabel('Número de Accidentes')
     
@@ -123,16 +164,17 @@ else:
     st.pyplot(plt)
     
     with open("grafico_correlacion_dia_semana_accidentes.png", "rb") as file:
-        st.download_button(label="Descargar gráfico", data=file, file_name="grafico_correlacion_dia_semana_accidentes.png", mime="image/png")
+        st.download_button(label="💾 Descargar gráfico", data=file, file_name="grafico_correlacion_dia_semana_accidentes.png", mime="image/png")
+
 # Gráfico 4: Correlación entre Mes y Número de Accidentes
-st.header("Correlación entre Mes y Número de Accidentes")
+st.header("📆 Correlación entre Mes y Número de Accidentes")
 correlacion_df = df_filtrado_accidentes.groupby('mes').size().reset_index(name='accidentes')
 if correlacion_df.empty:
-    st.write("No hay suficientes datos para mostrar el gráfico.")
+    st.write("⚠️ No hay suficientes datos para mostrar el gráfico.")
 else:
     plt.figure(figsize=(10, 6))
     sns.regplot(x='mes', y='accidentes', data=correlacion_df, scatter_kws={'s':50}, line_kws={'color':'blue'})
-    plt.title('Correlación entre Mes y Número de Accidentes')
+    plt.title('📈 Correlación entre Mes y Número de Accidentes')
     plt.xlabel('Mes')
     plt.ylabel('Número de Accidentes')
     meses_nombres = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
@@ -141,17 +183,17 @@ else:
     plt.savefig("grafico_correlacion_mes_accidentes.png")
     st.pyplot(plt)
     with open("grafico_correlacion_mes_accidentes.png", "rb") as file:
-        st.download_button(label="Descargar gráfico", data=file, file_name="grafico_correlacion_mes_accidentes.png", mime="image/png")
+        st.download_button(label="💾 Descargar gráfico", data=file, file_name="grafico_correlacion_mes_accidentes.png", mime="image/png")
 
 # Gráfico 5: Mapa de Calor de Accidentes por Día de la Semana y Hora
-st.header("Mapa de Calor: Accidentes por Día de la Semana y Hora del Día")
+st.header("🔥 Mapa de Calor: Accidentes por Día de la Semana y Hora del Día")
 heatmap_data = df_filtrado_accidentes.groupby(['dia_semana', 'hora']).size().unstack()
 if heatmap_data.empty or heatmap_data.shape[1] == 0:
-    st.write("No hay suficientes datos para mostrar el mapa de calor.")
+    st.write("⚠️ No hay suficientes datos para mostrar el mapa de calor.")
 else:
     plt.figure(figsize=(12, 6))
     sns.heatmap(heatmap_data, cmap="Blues_r", annot=True, fmt=".0f")
-    plt.title("Accidentes por Día de la Semana y Hora del Día")
+    plt.title("🌡️ Accidentes por Día de la Semana y Hora del Día")
     plt.xlabel("Hora del Día")
     plt.ylabel("Día de la Semana")
     plt.yticks(ticks=[0,1,2,3,4,5,6], labels=['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'])
@@ -159,35 +201,55 @@ else:
     plt.savefig("grafico_mapa_calor_accidentes.png")
     st.pyplot(plt)
     with open("grafico_mapa_calor_accidentes.png", "rb") as file:
-        st.download_button(label="Descargar gráfico", data=file, file_name="grafico_mapa_calor_accidentes.png", mime="image/png")
+        st.download_button(label="💾 Descargar gráfico", data=file, file_name="grafico_mapa_calor_accidentes.png", mime="image/png")
 
 # Gráfico 7: Gráfico de Líneas Comparativo de Accidentes por Carretera
-st.header("Comparación de Accidentes por Carretera a lo Largo del Tiempo")
-accidentes_por_carretera = df_filtrado_accidentes.groupby(['año', 'carretera_nombre']).size().unstack()
+st.header("📉 Comparación de Accidentes por Carretera a lo Largo del Tiempo")
+
+# Filtro para seleccionar múltiples carreteras para el gráfico comparativo
+carreteras_disponibles = df['carretera_nombre'].unique().tolist()
+carreteras_seleccionadas_default = ['TF-1']  # Carretera por defecto
+
+carreteras_seleccionadas = st.multiselect(
+    "🚧 Selecciona una o más Carreteras para Comparar",
+    carreteras_disponibles,
+    default=carreteras_seleccionadas_default
+)
+
+# Filtrar el dataframe para las carreteras seleccionadas
+df_filtrado_comparativo = df_filtrado_accidentes[df_filtrado_accidentes['carretera_nombre'].isin(carreteras_seleccionadas)]
+
+# Agrupación y visualización
+accidentes_por_carretera = df_filtrado_comparativo.groupby(['año', 'carretera_nombre']).size().unstack()
+
 if accidentes_por_carretera.empty or accidentes_por_carretera.shape[1] == 0:
-    st.write("No hay suficientes datos para mostrar el gráfico.")
+    st.write("⚠️ No hay suficientes datos para mostrar el gráfico.")
 else:
-    plt.figure(figsize=(12, 6))
-    accidentes_por_carretera.plot(kind='line', colormap="Blues_r")
-    plt.title("Comparación de Accidentes por Carretera a lo Largo del Tiempo")
+    plt.figure(figsize=(14, 8))  # Aumenta el tamaño de la figura
+    ax = accidentes_por_carretera.plot(kind='line', colormap="Blues_r", linewidth=2, marker='o', ax=plt.gca())
+    
+    # Ajustar la leyenda a la derecha del gráfico
+    plt.legend(title='Carreteras', bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
+    
+    plt.title("📈 Comparación de Accidentes a lo Largo del Tiempo")
     plt.xlabel("Año")
     plt.ylabel("Número de Accidentes")
-    plt.tight_layout()
+    plt.tight_layout(rect=[0, 0, 0.85, 1])  # Ajustar el espacio para la leyenda
+    
     plt.savefig("grafico_comparativo_accidentes_carretera.png")
     st.pyplot(plt)
     with open("grafico_comparativo_accidentes_carretera.png", "rb") as file:
-        st.download_button(label="Descargar gráfico", data=file, file_name="grafico_comparativo_accidentes_carretera.png", mime="image/png")
-
+        st.download_button(label="💾 Descargar gráfico", data=file, file_name="grafico_comparativo_accidentes_carretera.png", mime="image/png")
 
 # Gráfico 8: Accidentes por Año
-st.header("Número de Accidentes por Año")
+st.header("📅 Número de Accidentes por Año")
 accidentes_por_año = df_filtrado[df_filtrado['es_accidente'] == 'Accidente']['año'].value_counts().sort_index()
 if accidentes_por_año.empty:
-    st.write("No hay suficientes datos para mostrar el gráfico.")
+    st.write("⚠️ No hay suficientes datos para mostrar el gráfico.")
 else:
     plt.figure(figsize=(10, 6))
     sns.barplot(x=accidentes_por_año.index, y=accidentes_por_año.values, palette="Blues_r")
-    plt.title("Número de Accidentes por Año")
+    plt.title("📅 Número de Accidentes por Año")
     plt.xlabel("Año")
     plt.ylabel("Número de Accidentes")
     plt.grid(True)
@@ -195,7 +257,82 @@ else:
     plt.savefig("grafico_accidentes_por_ano.png")  # Guarda el archivo primero
     st.pyplot(plt)
     with open("grafico_accidentes_por_ano.png", "rb") as file:
-        st.download_button(label="Descargar gráfico", data=file, file_name="grafico_accidentes_por_ano.png", mime="image/png")
+        st.download_button(label="💾 Descargar gráfico", data=file, file_name="grafico_accidentes_por_ano.png", mime="image/png")
+st.header("🔍 Insights Clave del Análisis Basado en los Filtros Aplicados")
+
+# 1. Insight sobre el número de accidentes por tramo
+top_tramo = df_filtrado_accidentes['tramo_nombre'].value_counts().idxmax()
+top_accidentes = df_filtrado_accidentes['tramo_nombre'].value_counts().max()
+
+st.markdown(f"""
+### 1. 🛣️ **Tramo con Mayor Número de Accidentes**
+El tramo con más accidentes en el rango seleccionado es **{top_tramo}** con un total de **{top_accidentes} accidentes**.
+""")
+
+# 2. Insight sobre la hora con más accidentes
+hora_pico = df_filtrado_accidentes['hora'].value_counts().idxmax()
+num_accidentes_hora = df_filtrado_accidentes['hora'].value_counts().max()
+
+st.markdown(f"""
+### 2. ⏰ **Hora del Día con Más Accidentes**
+La hora del día con más accidentes es a las **{hora_pico}:00 horas** con **{num_accidentes_hora} accidentes**.
+""")
+
+# 3. Insight sobre el día de la semana con más accidentes
+dia_semana_pico = df_filtrado_accidentes['dia_semana'].value_counts().idxmax()
+dias_semana_nombres = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+dia_semana_nombre = dias_semana_nombres[dia_semana_pico]
+num_accidentes_dia = df_filtrado_accidentes['dia_semana'].value_counts().max()
+
+st.markdown(f"""
+### 3. 📅 **Día de la Semana con Mayor Riesgo**
+El día de la semana con más accidentes es el **{dia_semana_nombre}** con **{num_accidentes_dia} accidentes**.
+""")
+
+# 4. Insight sobre el mes con más accidentes
+mes_pico = df_filtrado_accidentes['mes'].value_counts().idxmax()
+meses_nombres = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+mes_nombre = meses_nombres[mes_pico - 1]
+num_accidentes_mes = df_filtrado_accidentes['mes'].value_counts().max()
+
+st.markdown(f"""
+### 4. 📆 **Mes con Mayor Número de Accidentes**
+El mes con más accidentes es **{mes_nombre}** con **{num_accidentes_mes} accidentes**.
+""")
+
+
+# 5. Insight sobre el día de la semana y hora (patrón)
+if not df_filtrado_accidentes.empty:
+    heatmap_data = df_filtrado_accidentes.groupby(['dia_semana', 'hora']).size().unstack()
+    dia_hora_pico = heatmap_data.stack().idxmax()
+    dia_pico_nombre = dias_semana_nombres[dia_hora_pico[0]]
+    hora_pico_nombre = dia_hora_pico[1]
+
+    st.markdown(f"""
+    ### 5. 🔥 **Patrón de Accidentes por Día de la Semana y Hora del Día**
+    El momento más crítico en el rango seleccionado es el **{dia_pico_nombre}** a las **{hora_pico_nombre}:00 horas**.
+    """)
+
+# 6. Insight sobre el número de accidentes a lo largo del tiempo
+if not df_filtrado_accidentes.empty:
+    accidentes_por_año = df_filtrado_accidentes['año'].value_counts().sort_index()
+    año_pico = accidentes_por_año.idxmax()
+    num_accidentes_año = accidentes_por_año.max()
+
+    st.markdown(f"""
+    ### 6. 📈 **Aumento de Accidentes a lo Largo del Tiempo**
+    El año con más accidentes en el rango seleccionado es **{año_pico}** con **{num_accidentes_año} accidentes**.
+    """)
+
+# 7. Insight sobre las carreteras específicas seleccionadas
+if len(carreteras_seleccionadas) > 1:
+    carretera_pico = df_filtrado_accidentes['carretera_nombre'].value_counts().idxmax()
+    num_accidentes_carretera = df_filtrado_accidentes['carretera_nombre'].value_counts().max()
+
+    st.markdown(f"""
+    ### 7. 🛣️ **Carretera con Mayor Número de Accidentes**
+    De las carreteras seleccionadas, la **{carretera_pico}** es la más peligrosa con **{num_accidentes_carretera} accidentes**.
+    """)
 
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
@@ -237,10 +374,10 @@ model.fit(X_train, y_train)
 # Predecir en el conjunto de prueba y mostrar la precisión
 y_pred = model.predict(X_test)
 accuracy = accuracy_score(y_test, y_pred)
-st.write(f"Precisión del modelo: {accuracy:.2f}")
+st.write(f"🎯 Precisión del modelo: {accuracy:.2f}")
 
 # Predecir probabilidad de accidente según los filtros seleccionados por el usuario
-st.header("Predicción de Accidente")
+st.header("🔮 Predicción de Accidente")
 
 # Listas para mostrar los nombres en lugar de números
 meses_nombres = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
@@ -248,18 +385,18 @@ dias_semana = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 
 horas_dia = list(range(0, 24))
 
 # Filtros para la predicción
-carretera_seleccionada = st.selectbox("Selecciona una Carretera", carreteras_disponibles)
+carretera_seleccionada = st.selectbox("🛣️ Selecciona una Carretera", carreteras_disponibles)
 tramos_disponibles = ['Todos los Tramos'] + df[df['carretera_nombre'] == carretera_seleccionada]['tramo_nombre'].unique().tolist()
-tramo_seleccionado = st.selectbox("Selecciona un Tramo", tramos_disponibles)
+tramo_seleccionado = st.selectbox("📍 Selecciona un Tramo", tramos_disponibles)
 
 # Multiselect para seleccionar múltiples meses
-meses_seleccionados = st.multiselect("Selecciona los Meses", meses_nombres, default=meses_nombres)
+meses_seleccionados = st.multiselect("📅 Selecciona los Meses", meses_nombres, default=meses_nombres)
 
 # Multiselect para seleccionar múltiples días de la semana
-dias_seleccionados = st.multiselect("Selecciona los Días de la Semana", dias_semana, default=dias_semana)
+dias_seleccionados = st.multiselect("🗓️ Selecciona los Días de la Semana", dias_semana, default=dias_semana)
 
 # Multiselect para seleccionar múltiples horas del día
-horas_seleccionadas = st.multiselect("Selecciona las Horas del Día", horas_dia, default=horas_dia)
+horas_seleccionadas = st.multiselect("⏰ Selecciona las Horas del Día", horas_dia, default=horas_dia)
 
 # Convertir los nombres de meses y días seleccionados a sus correspondientes números para el modelo
 meses_numeros = [meses_nombres.index(mes) + 1 for mes in meses_seleccionados]
@@ -292,11 +429,16 @@ pred_probs = model.predict_proba(input_data)[:, 1]  # Probabilidad de accidente
 avg_pred_prob = pred_probs.mean()
 
 # Mostrar resultados en la app
-st.write(f"Probabilidad promedio de que ocurra un accidente: {avg_pred_prob:.2%}")
+st.write(f"🔮 **Probabilidad promedio de que ocurra un accidente**: {avg_pred_prob:.2%}")
 
 # Explicación de los cálculos
 st.markdown("""
-**Probabilidad promedio de que ocurra un accidente**: 
+**🔍 Explicación de los Cálculos**:
 Este valor es la media de las probabilidades de accidente calculadas para cada combinación de los filtros seleccionados (meses, días, horas, tramos). Refleja el riesgo general, pero no implica que siempre ocurra un accidente.
+""")
+# Explicación de la precisión del modelo
+st.markdown("""
+**🎯 Precisión del Modelo**:
+La precisión muestra qué tan bien el modelo está funcionando en términos de clasificar correctamente los accidentes. Un valor de **0.78** indica que el 78% de las veces, el modelo predijo correctamente si hubo o no un accidente, proporcionando una evaluación general de su desempeño en el conjunto de prueba.
 """)
 
