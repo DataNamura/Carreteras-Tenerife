@@ -1,8 +1,12 @@
 import streamlit as st
 import pandas as pd
+import folium
+from streamlit_folium import folium_static
+import geopandas as gpd
 import seaborn as sns
 import matplotlib.pyplot as plt
-import gdown
+import gdown  # Asegurarse de importar gdown para la descarga de archivos desde Google Drive
+import datetime
 
 # Configuración de la página
 st.set_page_config(page_title="🚗 Análisis de Accidentes en Carreteras", layout="wide")
@@ -15,13 +19,12 @@ Esta aplicación interactiva proporciona un análisis detallado y predicciones s
 Es importante destacar que:
 - **Datos de 2010**: Hay una menor cantidad de datos disponibles, lo que podría influir en la precisión del análisis para ese año.
 - **Datos de 2024**: Los datos están disponibles solo hasta **julio de 2024**.
-
-Utilizando estos datos, se han creado varias visualizaciones para explorar las tendencias y patrones, así como un modelo de predicción para estimar la probabilidad de futuros accidentes basados en diferentes factores como la carretera, tramo, hora del día, entre otros.
 """)
-# Cargar los datos desde Google Drive
+
+# Función para cargar datos desde Google Drive
 @st.cache_data
 def load_data():
-    file_id = '1ZNtIooyj_3dAQ8dVpbnNOSFYHr0vDZdG'
+    file_id = '1ZNtIooyj_3dAQ8dVpbnNOSFYHr0vDZdG'  # El ID del archivo en Google Drive
     url = f'https://drive.google.com/uc?id={file_id}'
     output = 'incidencias_modificacion_1.csv'
     gdown.download(url, output, quiet=False)
@@ -48,18 +51,18 @@ años = st.sidebar.slider("Selecciona el Rango de Años", min_year, max_year, (m
 # Separador para organizar los filtros
 st.sidebar.markdown("---")
 
-# Subtítulo y descripción para el filtro de carreteras
+# Subtítulo y filtro para seleccionar carreteras
 st.sidebar.subheader("🛣️ Selección de Carreteras")
 st.sidebar.markdown("Elige una o varias carreteras para filtrar los datos.")
 carreteras_disponibles = df['carretera_nombre'].unique().tolist()
-carreteras_disponibles.append("Seleccionar Todas")  # Añadir opción para seleccionar todas
+carreteras_disponibles.append("Seleccionar Todas")
 carreteras_seleccionadas = st.sidebar.multiselect(
     "Carreteras",
     carreteras_disponibles,
-    default=["Seleccionar Todas"]  # Opción predeterminada
+    default=["Seleccionar Todas"]
 )
 
-# Otro separador
+# Separador
 st.sidebar.markdown("---")
 
 # Subtítulo y descripción para el filtro de horas
@@ -67,38 +70,75 @@ st.sidebar.subheader("⏰ Hora del Día")
 st.sidebar.markdown("Filtra los datos según la hora del día en la que ocurrieron los incidentes.")
 hora = st.sidebar.slider("Selecciona la Hora del Día", 0, 23, (0, 23))
 
-# Otro separador
+# Separador
 st.sidebar.markdown("---")
 
-# Añadir información adicional sobre cómo usar los filtros
-st.sidebar.info("Usa los filtros para personalizar los datos que deseas analizar en los gráficos y predicciones.")
-
-
-# Filtrar el dataframe
+# Filtrar el dataframe por años, carreteras y hora seleccionada
 if "Seleccionar Todas" in carreteras_seleccionadas:
     carreteras_seleccionadas = carreteras_disponibles[:-1]  # Excluye la opción "Seleccionar Todas"
 
-df_filtrado = df[(df['año'] >= años[0]) & (df['año'] <= años[1]) &
-                 (df['carretera_nombre'].isin(carreteras_seleccionadas)) &
+df_filtrado = df[(df['año'] >= años[0]) & (df['año'] <= años[1]) & 
+                 (df['carretera_nombre'].isin(carreteras_seleccionadas)) & 
                  (df['hora'] >= hora[0]) & (df['hora'] <= hora[1])]
 
-# Excluir los registros donde 'nombre_accidentes' es 'incidente'
+# Filtrar solo los accidentes (excluir incidentes si es necesario)
 df_filtrado_accidentes = df_filtrado[df_filtrado['nombre_accidentes'] != 'incidente']
 
-# Mostrar el dataframe filtrado
-st.write(f"📊 Datos Filtrados: {df_filtrado_accidentes.shape[0]} registros")
-st.dataframe(df_filtrado_accidentes)
+# Mapa de carreteras seleccionadas
+st.title(f'Mapa de Carreteras Seleccionadas')
+
+# Cargar puntos kilométricos desde un archivo GeoJSON (si lo tienes)
+gdf_puntos = gpd.read_file('puntos-kilometricos (1).geojson')
+
+# Filtrar los puntos kilométricos por las carreteras seleccionadas
+gdf_puntos_filtrados = gdf_puntos[gdf_puntos['via_nombre'].isin(carreteras_seleccionadas)]
+
+# Crear el mapa
+if not gdf_puntos_filtrados.empty:
+    map_center = [gdf_puntos_filtrados['pk_latitud'].mean(), gdf_puntos_filtrados['pk_longitud'].mean()]
+    mapa = folium.Map(location=map_center, zoom_start=10)
+
+    # Añadir las líneas conectando los puntos de cada carretera
+    for via, group in gdf_puntos_filtrados.groupby('via_nombre'):
+        puntos = list(zip(group['pk_latitud'], group['pk_longitud']))
+        folium.PolyLine(puntos, color='blue', weight=2.5, opacity=0.7).add_to(mapa)
+
+    # Mostrar el mapa interactivo
+    folium_static(mapa)
+else:
+    st.warning("No se encontraron puntos kilométricos para las carreteras seleccionadas.")
 
 # Configuración global del estilo del gráfico
 sns.set(style="darkgrid")  # Configura el estilo de fondo oscuro
 plt.style.use("dark_background")  # Alternativa para fondo oscuro
 
+# Configuración global del estilo del gráfico usando solo seaborn
+sns.set(style="darkgrid")  # Configura el estilo de fondo oscuro para seaborn
+# Elimina plt.style.use("dark_background") para evitar conflictos
+
+# Configuración global del estilo del gráfico usando solo matplotlib
+plt.style.use("dark_background")  # Alternativa para fondo oscuro
+# Elimina sns.set(style="darkgrid") para evitar conflictos
+
 # Gráfico 1: Número de Accidentes por Tramo
 st.header("🔝 Número de Accidentes en las Carreteras Seleccionadas")
+
+# Contar los accidentes por tramo en el DataFrame filtrado
 accidentes_por_tramo = df_filtrado_accidentes['tramo_nombre'].value_counts().head(10)
+
+# Verificar si hay datos, y si no hay, mostrar un gráfico vacío con una advertencia
 if accidentes_por_tramo.empty:
     st.write("⚠️ No hay suficientes datos para mostrar el gráfico.")
+    # Crear un gráfico vacío para que no quede en negro
+    plt.figure(figsize=(10, 6))
+    plt.text(0.5, 0.5, 'No hay suficientes datos', horizontalalignment='center', verticalalignment='center', fontsize=12)
+    plt.xticks([])
+    plt.yticks([])
+    plt.title("🚧 Top 10 Tramos de Carretera con Más Accidentes")
+    plt.tight_layout()
+    st.pyplot(plt)
 else:
+    # Si hay datos suficientes, mostrar el gráfico normal
     plt.figure(figsize=(10, 6))
     sns.barplot(x=accidentes_por_tramo.values, y=accidentes_por_tramo.index, palette="Blues_r")
     plt.title("🚧 Top 10 Tramos de Carretera con Más Accidentes")
@@ -109,6 +149,8 @@ else:
     st.pyplot(plt)
     with open("grafico_accidentes_por_tramo.png", "rb") as file:
         st.download_button(label="💾 Descargar gráfico", data=file, file_name="grafico_accidentes_por_tramo.png", mime="image/png")
+
+
 
 # Gráfico 2: Distribución de Accidentes por Hora del Día
 st.header("⏱️ Distribución de Accidentes por Hora del Día")
@@ -441,4 +483,99 @@ st.markdown("""
 **🎯 Precisión del Modelo**:
 La precisión muestra qué tan bien el modelo está funcionando en términos de clasificar correctamente los accidentes. Un valor de **0.78** indica que el 78% de las veces, el modelo predijo correctamente si hubo o no un accidente, proporcionando una evaluación general de su desempeño en el conjunto de prueba.
 """)
+
+#--------------------------- BAROMETRO hemos excluido la variante mes para que sea mas preciso la prediccion 
+#solo teniendo en cuenta las horas del dia y el dia
+import streamlit as st
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.preprocessing import LabelEncoder
+from datetime import datetime
+import plotly.graph_objects as go
+
+# Preprocesamiento de datos para el modelo sin usar el mes
+def preprocess_data_no_month(df):
+    df_model = df.copy()
+    df_model['incidencia_fecha_inicio'] = pd.to_datetime(df_model['incidencia_fecha_inicio'])
+    df_model['hora'] = df_model['incidencia_fecha_inicio'].dt.hour
+    df_model['dia_semana'] = df_model['incidencia_fecha_inicio'].dt.dayofweek
+    df_model['es_accidente'] = df_model['es_accidente'].apply(lambda x: 1 if x == 'Accidente' else 0)
+
+    # Codificar variables categóricas
+    le_carretera = LabelEncoder()
+    df_model['carretera_nombre'] = le_carretera.fit_transform(df_model['carretera_nombre'])
+    return df_model, le_carretera
+
+# Preprocesar los datos sin el mes
+df_model_no_month, le_carretera_no_month = preprocess_data_no_month(df)
+
+# Seleccionar características (sin el mes) y etiqueta
+X_no_month = df_model_no_month[['carretera_nombre', 'hora', 'dia_semana']]
+y_no_month = df_model_no_month['es_accidente']
+
+# Dividir datos en entrenamiento y prueba
+X_train_no_month, X_test_no_month, y_train_no_month, y_test_no_month = train_test_split(X_no_month, y_no_month, test_size=0.3, random_state=42)
+
+# Entrenar un modelo de clasificación
+model_no_month = RandomForestClassifier(n_estimators=100, random_state=42)
+model_no_month.fit(X_train_no_month, y_train_no_month)
+
+# Obtener la hora y el día de la semana actuales
+hora_actual = datetime.now().hour
+dia_semana_actual = datetime.now().weekday()
+
+# Traducir días al español
+dias_semana_es = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+
+# Mostrar título y el filtro de carreteras en el cuerpo principal
+st.header("🔮 Predicción de Accidente Actual")
+
+# Seleccionar la carretera
+carretera_seleccionada = st.selectbox("🛣️ Selecciona una Carretera", df['carretera_nombre'].unique(), key='carretera_select')
+
+# Convertir la carretera seleccionada a su valor codificado
+carretera_encoded = le_carretera_no_month.transform([carretera_seleccionada])[0]
+
+# Crear un dataframe con las características actuales (sin mes) para predecir
+input_data_no_month = pd.DataFrame({
+    'carretera_nombre': [carretera_encoded],
+    'hora': [hora_actual],
+    'dia_semana': [dia_semana_actual]
+})
+
+# Predecir la probabilidad de accidente
+prob_accidente_no_month = model_no_month.predict_proba(input_data_no_month)[:, 1][0]
+
+# Mostrar la predicción
+st.write(f"🔮 **Probabilidad de Accidente Actual**: {prob_accidente_no_month:.2%}")
+
+# Crear un gráfico de tipo Gauge para mostrar la probabilidad de accidente
+fig = go.Figure(go.Indicator(
+    mode="gauge+number",
+    value=prob_accidente_no_month * 100,
+    title={'text': "Probabilidad de Accidente Actual"},
+    gauge={
+        'axis': {'range': [0, 100]},
+        'bar': {'color': "black"},
+        'steps': [
+            {'range': [0, 33], 'color': "green"},
+            {'range': [33, 66], 'color': "orange"},
+            {'range': [66, 100], 'color': "red"}
+        ],
+        'threshold': {
+            'line': {'color': "black", 'width': 4},
+            'thickness': 0.75,
+            'value': prob_accidente_no_month * 100
+        }
+    }
+))
+
+# Mostrar la hora y fecha actual en Streamlit
+st.write(f"**Hora Actual**: {datetime.now().strftime('%H:%M:%S')}")
+st.write(f"**Día Actual**: {dias_semana_es[dia_semana_actual]}")
+
+# Mostrar el gráfico en Streamlit
+st.plotly_chart(fig)
 
